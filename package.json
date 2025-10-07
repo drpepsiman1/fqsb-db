@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "FQSB web app with Express 5 and a modern SearchDB interface",
   "type": "module",
-  "main": "Server_V2.js",
+  "main": "Server.js",
   "scripts": {
-    "start": "node Server_V2.js"
+    "start": "node Server.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

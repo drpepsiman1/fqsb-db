@@ -4,6 +4,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import mysql from "mysql2/promise";
+import cors from "cors";
+app.use(cors({ origin: "https://drpepsiman1.github.io" })); // or your custom domain
+app.use(express.json());
+
 
 dotenv.config();
 
@@ -122,3 +126,4 @@ app.get(/^(?!\/api).*/, (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+

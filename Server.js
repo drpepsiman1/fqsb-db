@@ -1,124 +1,82 @@
-// Server_V2.js
+// server.js
+// Minimal REST API for FQSB member search
+// Deploy on Render/Railway/Fly/etc. Never expose DB creds in the frontend.
+
 import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
-import dotenv from "dotenv";
+import cors from "cors";
 import mysql from "mysql2/promise";
 
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// ---------- DB setup ----------
-let pool = null;
-const hasDb =
-  process.env.MYSQL_HOST &&
-  process.env.MYSQL_USER &&
-  process.env.MYSQL_DATABASE;
-
-if (hasDb) {
-  pool = mysql.createPool({
-    host: process.env.MYSQL_HOST,
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD || "",
-    database: process.env.MYSQL_DATABASE,
-    port: Number(process.env.MYSQL_PORT || 3306),
-    waitForConnections: true,
-    connectionLimit: 10
-  });
-  console.log("[DB] MySQL pool created");
-} else {
-  console.log("[DB] No MySQL env vars found; API will error until .env is set.");
-}
-
-// ---------- Middleware ----------
+// Allow your GitHub Pages origin. During testing you can use "*".
+app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") || "*" }));
 app.use(express.json());
 
-// ---------- Static files ----------
-app.use(
-  express.static(path.join(__dirname, "public"), {
-    extensions: ["html"],
-    maxAge: "1h",
-    setHeaders(res) {
-      res.setHeader("X-Content-Type-Options", "nosniff");
-    }
-  })
-);
-
-// ---------- API ----------
-const TABLE = "Members"; // change if your table name differs
-
-// POST /api/search  { query: "text or number" }
-app.post("/api/search", async (req, res) => {
-  const qRaw = (req.body?.query ?? "").trim();
-  if (!qRaw) return res.status(400).json({ error: "Missing 'query'." });
-
-  const q = qRaw;
-  const like = `%${q}%`;
-  const isNumeric = /^[0-9]+$/.test(q);
-
-  try {
-    if (!pool) {
-      return res.status(500).json({ error: "DB not configured. Set MySQL env vars." });
-    }
-
-    // SELECT now returns PeakRating instead of HighestRating
-    const sql = isNumeric
-      ? `
-        SELECT \`MemberNum\`, \`LastName\`, \`FirstName\`, \`Class\`,
-               \`Rating\`, \`PeakRating\`
-        FROM \`${TABLE}\`
-        WHERE \`MemberNum\` = ? OR \`LastName\` LIKE ? OR \`FirstName\` LIKE ?
-        ORDER BY \`LastName\` ASC, \`FirstName\` ASC
-        LIMIT 100
-      `
-      : `
-        SELECT \`MemberNum\`, \`LastName\`, \`FirstName\`, \`Class\`,
-               \`Rating\`, \`PeakRating\`
-        FROM \`${TABLE}\`
-        WHERE CAST(\`MemberNum\` AS CHAR) LIKE ? OR \`LastName\` LIKE ? OR \`FirstName\` LIKE ?
-        ORDER BY \`LastName\` ASC, \`FirstName\` ASC
-        LIMIT 100
-      `;
-
-    const params = isNumeric ? [Number(q), like, like] : [like, like, like];
-    const [rows] = await pool.query(sql, params);
-    return res.json({ results: rows });
-  } catch (err) {
-    console.error("[search] error:", err);
-    return res.status(500).json({ error: "Server error." });
-  }
+// ---- DB connection pool (Aiven requires SSL) ----
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,           // logannis09-mahaineault-9092.j.aivencloud.com
+  port: Number(process.env.DB_PORT),   // 25458
+  user: process.env.DB_USER,           // ServerRO
+  password: process.env.DB_PASSWORD,   // 5Fx^xbZ@3MKi03
+  database: process.env.DB_NAME,       // FQSB
+  waitForConnections: true,
+  connectionLimit: 5,
+  ssl: {
+    // Use Aiven CA cert. Put the text in env DB_CA or mount a file and read it.
+    rejectUnauthorized: true,
+    ca: process.env.DB_CA,
+  },
 });
 
-// Optional test helpers
-app.get("/api/health/db", async (_req, res) => {
-  try {
-    if (!pool) return res.json({ ok: false, reason: "No DB config" });
-    const [rows] = await pool.query("SELECT 1 AS ok");
-    res.json({ ok: true, rows });
-  } catch (e) {
-    console.error("[health/db] error:", e);
-    res.status(500).json({ ok: false, error: String(e) });
-  }
-});
+// Health check
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Search endpoint: q = name or member number
 app.get("/api/search", async (req, res) => {
-  req.body = { query: req.query.q || "" };
-  return app._router.handle(req, res);
-});
+  try {
+    const q = (req.query.q || "").toString().trim();
+    if (!q) return res.json({ items: [] });
 
-// Pages
-app.get("/SearchDB", (_req, res) => {
-  res.sendFile(path.join(__dirname, "public", "SearchDB.HTML"));
-});
-app.get(/^(?!\/api).*/, (_req, res) => {
-  res.sendFile(path.join(__dirname, "public", "SearchDB.HTML"));
+    // Columns you want to expose
+    const cols = [
+      "MemberNum",
+      "FirstName",
+      "LastName",
+      "Class",
+      "Rating",
+      "PeakRating",
+    ].join(", ");
+
+    let sql, params;
+
+    // If q is all digits, search by exact member number; else search names
+    if (/^\d+$/.test(q)) {
+      sql = `SELECT ${cols} FROM Members WHERE MemberNum = ? LIMIT 50`;
+      params = [q];
+    } else {
+      // Split words to support "first last" or partials
+      const parts = q.split(/\s+/).filter(Boolean);
+      // Build a simple AND of LIKEs across FirstName OR LastName for each token
+      // e.g., ("FirstName LIKE ? OR LastName LIKE ?") AND ...
+      const ors = parts.map(() => "(FirstName LIKE ? OR LastName LIKE ?)");
+      sql = `SELECT ${cols}
+             FROM Members
+             WHERE ${ors.join(" AND ")}
+             ORDER BY LastName, FirstName
+             LIMIT 50`;
+      params = parts.flatMap(p => [`%${p}%`, `%${p}%`]);
+    }
+
+    const [rows] = await pool.query(sql, params);
+    res.json({ items: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Search failed" });
+  }
 });
 
 // Start
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`API listening on :${PORT}`);
 });

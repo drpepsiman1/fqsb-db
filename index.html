@@ -146,6 +146,13 @@
   </footer>
 
   <script>
+   
+  const IS_PAGES = location.hostname.endsWith("github.io");
+  const API_BASE = IS_PAGES
+    ? "https://YOUR-EXPRESS-APP-URL"   // e.g., https://fqsb-api.onrender.com
+    : ""; // local dev keeps same-origin (/api/...)
+
+
     // ===== Configure this for GitHub Pages =====
     // Put your deployed backend URL below (HTTPS). Example: "https://fqsb-api.onrender.com"
     const API_BASE = "https://YOUR-BACKEND-URL";
@@ -367,3 +374,4 @@
   </script>
 </body>
 </html>
+

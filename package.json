@@ -1,3 +1,16 @@
-{ "name":"fqsb-api","type":"module","private":true,
-  "dependencies":{"express":"^4","mysql2":"^3","cors":"^2"},
-  "scripts":{"start":"node server.js"} }
+{
+  "name": "fqsb-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "mysql2": "^3.11.3"
+  }
+}

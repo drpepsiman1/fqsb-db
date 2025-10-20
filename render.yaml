@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: fqsb-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    autoDeploy: true
+    envVars:
+      - key: CORS_ORIGIN
+        value: https://drpepsiman1.github.io
+      - key: DB_HOST
+        value: logannis09-mahaineault-9092.j.aivencloud.com
+      - key: DB_PORT
+        value: 25458
+      - key: DB_USER
+        value: ServerRO
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: FQSB
+      - key: DB_CA
+        sync: false

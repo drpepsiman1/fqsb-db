@@ -46,7 +46,7 @@
     .top{display:flex; justify-content:space-between; align-items:center}
     .name{font-weight:700; letter-spacing:.2px}
     .muted{color:var(--muted); font-size:13px}
-    .badges{display:flex; gap:8px; margin-top:10px}
+    .badges{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap}
     .badge{
       border:1px solid #1f2937; background:#0b1222; padding:6px 8px; border-radius:10px; font-size:13px;
     }
@@ -73,12 +73,8 @@
     <div class="footer">API status: <span id="health" class="muted">checking…</span></div>
   </div>
 
+  <script src="./js/config.js"></script>
   <script>
-    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    // SET THIS to your deployed backend, e.g. "https://fqsb-api.onrender.com"
-    const API_BASE = https://drpepsiman1.github.io/fqsb-db/;
-    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
     const q = document.getElementById("q");
     const btn = document.getElementById("btn");
     const out = document.getElementById("out");
@@ -86,7 +82,7 @@
 
     async function checkHealth(){
       try{
-        const r = await fetch(API_BASE + "/api/health", {cache:"no-store"});
+        const r = await fetch(window.API_BASE + "/api/health", {cache:"no-store"});
         health.textContent = r.ok ? "online" : "unreachable";
         if(r.ok) health.classList.add("ok");
       }catch{ health.textContent = "unreachable"; }
@@ -121,11 +117,19 @@
       if(!val){ render([]); return; }
       btn.disabled = true;
       try{
-        const r = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(val)}`);
+        const r = await fetch(`${window.API_BASE}/api/search?q=${encodeURIComponent(val)}`);
+        if(!r.ok){
+          const t = await r.text();
+          throw new Error(`API error ${r.status}: ${t}`);
+        }
         const j = await r.json();
         render(j.items || []);
       }catch(e){
-        out.innerHTML = `<div class="empty">Could not reach the API. Check API_BASE.</div>`;
+        console.error(e);
+        out.innerHTML = `<div class="empty">
+          Could not reach the API. Check API_BASE/CORS.<br/>
+          <span class="muted">${(e && (e.message || e.toString()))}</span>
+        </div>`;
       }finally{
         btn.disabled = false;
       }
@@ -136,4 +140,3 @@
   </script>
 </body>
 </html>
-

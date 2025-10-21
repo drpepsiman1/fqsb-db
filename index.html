@@ -4,12 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FQSB — Player Search</title>
-  <meta name="description" content="Fast player search for FQSB members." />
   <meta name="theme-color" content="#0ea5e9" />
   <style>
     :root{
       --bg:#0b0f17; --surf:#0f1420; --card:#0d1220; --text:#e6eef7; --muted:#a6b0c3;
-      --brand:#0ea5e9; --ring:#38bdf8; --ok:#22c55e; --border:#1b2234;
+      --brand:#0ea5e9; --ring:#38bdf8; --ok:#22c55e; --border:#1b2234; --gold:#fbbf24;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -18,30 +17,75 @@
       background:radial-gradient(1200px 600px at 70% -10%, #0a1628 0%, var(--bg) 60%) no-repeat;
       color:var(--text);
     }
-    .wrap{max-width:960px; margin:48px auto; padding:0 16px}
-    .header{display:flex; align-items:center; gap:12px; margin-bottom:24px}
+
+    .app{
+      display:grid;
+      grid-template-columns: 320px 1fr;  /* wider favorites at left */
+      gap:18px; max-width:1200px; margin:28px auto; padding:0 16px;
+    }
+
+    /* Left: Favorites panel */
+    .panel{
+      background:var(--surf); border:1px solid var(--border); border-radius:16px;
+      padding:14px; display:flex; flex-direction:column; min-height:70vh;
+    }
+    .panel h2{font-size:16px; margin:0 0 10px 0}
+    .fav-list{
+      overflow:auto; flex:1; border:1px solid var(--border); border-radius:12px; padding:8px; background:#0b1222;
+    }
+    /* Styled scrollbar (webkit) */
+    .fav-list::-webkit-scrollbar{width:10px}
+    .fav-list::-webkit-scrollbar-track{background:#0e1525}
+    .fav-list::-webkit-scrollbar-thumb{background:#1e2a44; border-radius:8px}
+    .fav-list::-webkit-scrollbar-thumb:hover{background:#27365a}
+
+    .fav-item{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:8px 10px; border:1px solid #1a2239; border-radius:10px; margin-bottom:8px;
+      background:linear-gradient(180deg,var(--card) 0%, #0b1222 100%);
+    }
+    .fav-name{font-weight:600}
+    .fav-meta{color:var(--muted); font-size:12px}
+    .fav-actions{display:flex; gap:8px; align-items:center}
+
+    .btn{
+      border:1px solid #1f2937; background:#0b1222; color:var(--text);
+      padding:6px 10px; border-radius:10px; cursor:pointer; font-size:13px;
+    }
+    .btn:hover{border-color:#2b3a57}
+
+    .cap{color:var(--muted); font-size:12px; margin-top:8px}
+
+    /* Right: Search + results */
+    .right{
+      display:flex; flex-direction:column; gap:12px;
+    }
+    .header{
+      display:flex; align-items:center; gap:12px; margin-bottom:4px
+    }
     .logo{width:36px; height:36px; border-radius:9px; background:linear-gradient(120deg,var(--brand),#1d4ed8);}
-    h1{font-size:24px; margin:0}
+    h1{font-size:22px; margin:0}
+
     .searchbar{
       display:flex; gap:10px; align-items:center; padding:14px; background:var(--surf);
-      border:1px solid var(--border); border-radius:14px; box-shadow:0 6px 20px rgb(0 0 0 / 35%);
-      position:sticky; top:16px; backdrop-filter:blur(6px); z-index:10;
+      border:1px solid var(--border); border-radius:14px; position:sticky; top:0; z-index:10;
+      backdrop-filter:blur(6px);
     }
-    input[type="search"]{
+    .searchbar input[type="search"]{
       flex:1; background:#0b1222; color:var(--text); border:1px solid #111827;
-      border-radius:10px; padding:12px 14px; outline:none;
+      border-radius:10px; padding:12px 14px; outline:none; height:44px;
     }
-    input[type="search"]:focus{border-color:var(--ring); box-shadow:0 0 0 3px rgb(56 189 248 / 18%)}
-    button{
-      background:var(--brand); border:none; color:white; padding:12px 16px;
-      border-radius:10px; cursor:pointer; font-weight:600;
+    .searchbar input[type="search"]:focus{border-color:var(--ring); box-shadow:0 0 0 3px rgb(56 189 248 / 18%)}
+    .searchbar button{
+      background:var(--brand); border:none; color:white; padding:0 18px;
+      border-radius:10px; cursor:pointer; font-weight:700; height:44px; display:flex; align-items:center; justify-content:center;
     }
-    button:disabled{opacity:.6; cursor:not-allowed}
-    .hint{color:var(--muted); font-size:13px; margin-top:8px}
-    .results{margin-top:18px; display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px}
+    .hint{color:var(--muted); font-size:13px; margin-left:4px}
+
+    .results{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; margin-top:6px}
     .card{
       background:linear-gradient(180deg,var(--card) 0%, #0b1222 100%);
-      border:1px solid var(--border); border-radius:16px; padding:14px 14px 12px;
+      border:1px solid var(--border); border-radius:16px; padding:14px 14px 12px; position:relative;
     }
     .top{display:flex; justify-content:space-between; align-items:center}
     .name{font-weight:700; letter-spacing:.2px}
@@ -50,93 +94,50 @@
     .badge{
       border:1px solid #1f2937; background:#0b1222; padding:6px 8px; border-radius:10px; font-size:13px;
     }
-    .empty{color:var(--muted); border:1px dashed #283047; padding:22px; border-radius:14px; margin-top:18px}
-    .footer{margin-top:28px; color:var(--muted); font-size:13px; text-align:center}
+
+    .star{
+      width:22px; height:22px; cursor:pointer; opacity:.9; transition:transform .1s ease;
+      color:#6b7280; /* gray when not favorited */
+    }
+    .star:hover{transform:scale(1.1)}
+    .star.fav{ color: var(--gold); } /* yellow filled when favorited */
+
+    .empty{color:var(--muted); border:1px dashed #283047; padding:22px; border-radius:14px; margin-top:10px}
+    .footer{margin-top:10px; color:var(--muted); font-size:13px}
     .ok{color:var(--ok)}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="header">
-      <div class="logo" aria-hidden="true"></div>
-      <h1>FQSB — Player Search</h1>
-    </div>
+  <div class="app">
+    <!-- Left: Favorites -->
+    <aside class="panel">
+      <h2>★ Favorites <span id="favCount" class="cap"></span></h2>
+      <div id="favList" class="fav-list"></div>
+      <div class="cap">Max 50 favorites • Click the star to add/remove</div>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button id="exportFav" class="btn">Export</button>
+        <button id="clearFav" class="btn">Clear</button>
+      </div>
+    </aside>
 
-    <div class="searchbar">
-      <input id="q" type="search" placeholder="Search by name or member # (e.g., 12345, 'Marie', 'Tremblay')" autocomplete="off" />
-      <button id="btn">Search</button>
-    </div>
-    <div class="hint">Type and press Enter. Member # = exact match; names support partials and multiple words.</div>
+    <!-- Right: Search + Results -->
+    <main class="right">
+      <div class="header">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>FQSB — Player Search</h1>
+      </div>
+      <div class="searchbar">
+        <input id="q" type="search" placeholder="Search by name or member # (e.g., 12345, 'Marie', 'Tremblay')" autocomplete="off" />
+        <button id="btn">Search</button>
+      </div>
+      <div class="hint">Press <b>Enter</b> or click <b>Search</b>. Member # = exact; name = partials / multi-word.</div>
 
-    <div id="out"></div>
-
-    <div class="footer">API status: <span id="health" class="muted">checking…</span></div>
+      <div id="out"></div>
+      <div class="footer">API status: <span id="health" class="muted">checking…</span></div>
+    </main>
   </div>
 
   <script src="./js/config.js"></script>
-  <script>
-    const q = document.getElementById("q");
-    const btn = document.getElementById("btn");
-    const out = document.getElementById("out");
-    const health = document.getElementById("health");
-
-    async function checkHealth(){
-      try{
-        const r = await fetch(window.API_BASE + "/api/health", {cache:"no-store"});
-        health.textContent = r.ok ? "online" : "unreachable";
-        if(r.ok) health.classList.add("ok");
-      }catch{ health.textContent = "unreachable"; }
-    }
-    checkHealth();
-
-    function render(items){
-      if(!items?.length){
-        out.innerHTML = `<div class="empty">No results. Try a different spelling or the exact member number.</div>`;
-        return;
-      }
-      const cards = items.map(it => {
-        const fullname = `${it.FirstName ?? ""} ${it.LastName ?? ""}`.trim();
-        return `
-        <div class="card">
-          <div class="top">
-            <div class="name">${fullname || "—"}</div>
-            <div class="muted">#${it.MemberNum ?? "—"}</div>
-          </div>
-          <div class="badges">
-            <div class="badge">Class: <strong>${it.Class ?? "—"}</strong></div>
-            <div class="badge">Rating: <strong>${it.Rating ?? "—"}</strong></div>
-            <div class="badge">Peak: <strong>${it.PeakRating ?? "—"}</strong></div>
-          </div>
-        </div>`;
-      }).join("");
-      out.innerHTML = `<div class="results">${cards}</div>`;
-    }
-
-    async function doSearch(){
-      const val = q.value.trim();
-      if(!val){ render([]); return; }
-      btn.disabled = true;
-      try{
-        const r = await fetch(`${window.API_BASE}/api/search?q=${encodeURIComponent(val)}`);
-        if(!r.ok){
-          const t = await r.text();
-          throw new Error(`API error ${r.status}: ${t}`);
-        }
-        const j = await r.json();
-        render(j.items || []);
-      }catch(e){
-        console.error(e);
-        out.innerHTML = `<div class="empty">
-          Could not reach the API. Check API_BASE/CORS.<br/>
-          <span class="muted">${(e && (e.message || e.toString()))}</span>
-        </div>`;
-      }finally{
-        btn.disabled = false;
-      }
-    }
-
-    btn.addEventListener("click", doSearch);
-    q.addEventListener("keydown", (e) => { if(e.key === "Enter") doSearch(); });
-  </script>
+  <script src="./js/app.js"></script>
 </body>
 </html>
